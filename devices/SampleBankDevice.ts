@@ -1,5 +1,5 @@
-import { Device } from ".";
-import { Sample, fetchSample } from "../audio";
+import { Device } from "./types.ts";
+import { Sample, fetchSample } from "../audio.ts";
 
 export class SampleBankDevice implements Device {
   files: string[];

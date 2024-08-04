@@ -36,11 +36,11 @@ export class SamplePlayerDevice implements Device {
     this.sampleFiles = sampleFiles;
   }
 
-  setParam(param: keyof SamplePlayerParams, value: number) {
+  setParam(param: keyof SamplePlayerParams, value: number): void {
     this.params[param] = value;
   }
 
-  getSampleIndex() {
+  private getSampleIndex() {
     return Math.floor(this.params.sample * (this.samples.length - 1));
   }
 

@@ -35,6 +35,8 @@ export class Scheduler {
 
   worker: Worker;
 
+  playing = false;
+
   constructor(audioContext: AudioContext, initialBPM: number) {
     this.audioContext = audioContext;
     this.bpm = initialBPM;
@@ -68,6 +70,8 @@ export class Scheduler {
       type: "start",
       lookaheadTimeMs: this.lookaheadTimeMs,
     });
+
+    this.playing = true;
   }
 
   stop() {
@@ -75,6 +79,12 @@ export class Scheduler {
       type: "stop",
       lookaheadTimeMs: this.lookaheadTimeMs,
     });
+
+    this.playing = false;
+  }
+
+  togglePlaying() {
+    this.playing ? this.stop() : this.start();
   }
 
   setBPM(bpm: number) {

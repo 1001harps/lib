@@ -7,7 +7,7 @@ const OCTAVE_UP_KEY = "z";
 const OCTAVE_DOWN_KEY = "x";
 
 export class ComputerMidiKeyboard extends EventListener<MidiEvent> {
-  octave = 4;
+  private octave = 4;
 
   constructor() {
     super();

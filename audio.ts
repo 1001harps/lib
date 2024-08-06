@@ -1,4 +1,4 @@
-import { midiNoteToFrequency } from "./midi.ts";
+import { midiNoteToFrequency } from "./midi";
 
 export const fetchSample = (
   context: AudioContext,

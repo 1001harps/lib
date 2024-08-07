@@ -3,6 +3,7 @@
     "lib": ["esnext", "dom", "dom.iterable"],
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "noImplicitReturns": true
+    "noImplicitReturns": true,
+    "downlevelIteration": true
   }
 }

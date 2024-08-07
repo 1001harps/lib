@@ -43,7 +43,7 @@ export const triggerNote = function (
   midiOutput: WebMidi.MIDIOutput,
   channel: number,
   note: number
-) {
+): void {
   if (!midiOutput) {
     throw "no midi output";
   }

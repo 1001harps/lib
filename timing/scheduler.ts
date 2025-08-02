@@ -53,16 +53,19 @@ export class Scheduler {
   }
 
   private tick() {
-    while (
-      this.nextNoteTime <
-      this.audioContext.currentTime + this.scheduleAheadTime
-    ) {
+    const now = this.audioContext.currentTime;
+
+    // If we're behind, resync to current time
+    if (this.nextNoteTime < now) {
+      this.nextNoteTime = now;
+    }
+
+    while (this.nextNoteTime < now + this.scheduleAheadTime) {
       this.listeners.forEach((l) => l(this.nextNoteTime));
       const secondsPerBeat = 60.0 / this.bpm;
       this.nextNoteTime += 0.25 * secondsPerBeat;
     }
   }
-
   start() {
     this.nextNoteTime = this.audioContext.currentTime;
 

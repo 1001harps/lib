@@ -1,3 +1,4 @@
+import { EventListener } from "../mod";
 import { createDynamicWorker } from "./worker";
 
 type SchedulerListener = (timestamp: number) => void;
@@ -23,11 +24,9 @@ const createTimerWorker = () => {
   return createDynamicWorker(script);
 };
 
-export class Scheduler {
+export class Scheduler extends EventListener<number> {
   audioContext: AudioContext;
   bpm = 120;
-
-  listeners: SchedulerListener[] = [];
 
   lookaheadTimeMs = 50.0;
   scheduleAheadTime = 0.1;
@@ -38,6 +37,8 @@ export class Scheduler {
   playing = false;
 
   constructor(audioContext: AudioContext, initialBPM: number) {
+    super();
+
     this.audioContext = audioContext;
     this.bpm = initialBPM;
 
@@ -61,7 +62,7 @@ export class Scheduler {
     }
 
     while (this.nextNoteTime < now + this.scheduleAheadTime) {
-      this.listeners.forEach((l) => l(this.nextNoteTime));
+      this.notify(this.nextNoteTime);
       const secondsPerBeat = 60.0 / this.bpm;
       this.nextNoteTime += 0.25 * secondsPerBeat;
     }
@@ -92,13 +93,5 @@ export class Scheduler {
 
   setBPM(bpm: number) {
     this.bpm = bpm;
-  }
-
-  addEventListener(listener: SchedulerListener) {
-    this.listeners.push(listener);
-  }
-
-  removeEventListener(listener: SchedulerListener) {
-    this.listeners = this.listeners.filter((x) => x !== listener);
   }
 }

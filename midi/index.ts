@@ -11,8 +11,25 @@ export const midiNoteToFrequency = (note: number): number => {
   return 440 * Math.pow(2, (note - a4) / 12);
 };
 
-const NOTE_ON = 0x90;
-const NOTE_OFF = 0x80;
+export const NOTE_ON = 0x90;
+export const NOTE_OFF = 0x80;
+
+/**
+ * Returns the first available MIDI input
+ *
+ * @returns MIDIInput
+ */
+export const getFirstMidiInput = async (): Promise<WebMidi.MIDIInput> => {
+  const midiAccess = await navigator.requestMIDIAccess();
+
+  const inputs = midiAccess.inputs.values();
+
+  for (const input of inputs) {
+    return input;
+  }
+
+  throw "failed to get midi output";
+};
 
 /**
  * Returns the first available MIDI output
@@ -42,7 +59,7 @@ export const getFirstMidiOutput = async (): Promise<WebMidi.MIDIOutput> => {
 export const triggerNote = function (
   midiOutput: WebMidi.MIDIOutput,
   channel: number,
-  note: number
+  note: number,
 ): void {
   if (!midiOutput) {
     throw "no midi output";

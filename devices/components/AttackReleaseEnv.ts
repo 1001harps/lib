@@ -27,7 +27,7 @@ export class AttackReleaseEnv {
     }
     this.gainNode.gain.linearRampToValueAtTime(
       0,
-      timestamp + this.attack + this.release
+      timestamp + this.attack + this.release,
     );
   }
 }

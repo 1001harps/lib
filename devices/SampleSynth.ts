@@ -1,28 +1,20 @@
 import { fetchSample, Sample } from "../audio";
-import { AttackReleaseEnv } from "./shared";
-import { Device } from "./types";
+import { EventListener } from "../common/events";
+import { AttackReleaseEnv } from "./components/AttackReleaseEnv";
+import { numberParam } from "./types";
+import type { Device, DeviceParam, DeviceEvent } from "./types";
 
-export interface SamplePlayerParams {
-  volume: number;
-  sample: number;
-  octave: number;
-  filterCutoff: number;
-  filterRes: number;
-  filterEnvMod: number;
-  attack: number;
-  release: number;
-}
+export class SampleSynth extends EventListener<DeviceEvent> implements Device {
+  name = "SampleSynth";
 
-export class SamplePlayerDevice implements Device {
   context: AudioContext | undefined;
   samples: Sample[] = [];
 
   sampleFiles: string[];
-
-  static defaultParams = {
+  state = {
     volume: 0.75,
     sample: 0,
-    octave: 0.4,
+    octave: 0,
     filterCutoff: 0.5,
     filterRes: 0,
     filterEnvMod: 0,
@@ -30,18 +22,24 @@ export class SamplePlayerDevice implements Device {
     release: 0.3,
   };
 
-  params = SamplePlayerDevice.defaultParams;
+  params: DeviceParam[] = [
+    numberParam("volume"),
+    numberParam("sample"),
+    numberParam("octave", -2, 2, 1),
+    numberParam("filterCutoff"),
+    numberParam("filterRes"),
+    numberParam("filterEnvMod"),
+    numberParam("attack"),
+    numberParam("release"),
+  ];
 
   constructor(sampleFiles: string[]) {
+    super();
     this.sampleFiles = sampleFiles;
   }
 
-  setParam(param: keyof SamplePlayerParams, value: number): void {
-    this.params[param] = value;
-  }
-
   private getSampleIndex() {
-    return Math.floor(this.params.sample * (this.samples.length - 1));
+    return Math.floor(this.state.sample * (this.samples.length - 1));
   }
 
   async init(context: AudioContext): Promise<void> {
@@ -54,7 +52,7 @@ export class SamplePlayerDevice implements Device {
           name: sample.name,
           sample: new Sample(context, sample.name, sample.buffer),
         };
-      })
+      }),
     );
 
     this.samples = samples.map((x) => x.sample);
@@ -66,33 +64,45 @@ export class SamplePlayerDevice implements Device {
     const sample = this.samples[this.getSampleIndex()] as Sample;
 
     const env = new AttackReleaseEnv(this.context);
-    env.attack = this.params.attack;
-    env.release = this.params.release;
+    env.attack = this.state.attack;
+    env.release = this.state.release;
 
     // filter, TODO: replace this with something nicer
     const filter = this.context.createBiquadFilter();
 
     filter.type = "lowpass";
-    filter.frequency.value = this.params.filterCutoff * 7000;
-    filter.Q.value = this.params.filterRes * 30;
+    filter.frequency.value = this.state.filterCutoff * 7000;
+    filter.Q.value = this.state.filterRes * 30;
 
     // gain node
     const gainNode = this.context.createGain();
-    gainNode.gain.value = 0.8 * this.params.volume * 1.5;
+    gainNode.gain.value = 0.8 * this.state.volume * 1.5;
 
-    env.gainNode.connect(filter);
+    env.destination.connect(filter);
     filter.connect(gainNode);
     gainNode.connect(this.context.destination);
 
+    const offset = Math.floor(this.state.octave) * 12;
+
     env.trigger(timestamp);
-    sample.play(env.gainNode, note, timestamp);
+    sample.play(env.destination, note + offset, timestamp);
   }
 
-  noteOn(note: number, timestamp: number): void {
+  noteOn(_note: number, _timestamp: number): void {
     throw new Error("Method not implemented.");
   }
 
-  noteOff(note: number): void {
+  noteOff(_note: number): void {
     throw new Error("Method not implemented.");
+  }
+
+  update<T extends DeviceParam>(param: T, value: number | string): void {
+    // @ts-ignore
+    this.state[param.name] = value;
+
+    this.notify({
+      type: "param_change",
+      param,
+    });
   }
 }

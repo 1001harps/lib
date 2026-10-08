@@ -1,27 +1,24 @@
-import { Device } from "./types.ts";
+import { numberParam } from "./types.ts";
+import type { Device, DeviceEvent, DeviceParam } from "./types.ts";
 import { Sample, fetchSample } from "../audio.ts";
+import { EventListener } from "../common/events.ts";
 
-export interface SampleBankParams {
-  volume: number;
-}
+export class SampleBank extends EventListener<DeviceEvent> implements Device {
+  name = "SampleBank";
 
-export class SampleBankDevice implements Device {
   files: string[];
 
   context?: AudioContext;
   samples: Sample[] = [];
 
-  static defaultSampleBankParams = {
+  state = {
     volume: 0.75,
   };
 
-  params = SampleBankDevice.defaultSampleBankParams;
-
-  setParam(param: keyof SampleBankParams, value: number) {
-    this.params[param] = value;
-  }
+  params = [numberParam("volume")];
 
   constructor(files: string[]) {
+    super();
     this.files = files;
   }
 
@@ -29,7 +26,7 @@ export class SampleBankDevice implements Device {
     this.context = context;
 
     const sampleData = await Promise.all(
-      this.files.map((filename) => fetchSample(context, filename, filename))
+      this.files.map((filename) => fetchSample(context, filename, filename)),
     );
 
     this.samples = sampleData.map((s) => new Sample(context, s.name, s.buffer));
@@ -41,17 +38,27 @@ export class SampleBankDevice implements Device {
     if (!sample || !this.context) return;
 
     const gainNode = this.context.createGain();
-    gainNode.gain.value = this.params.volume;
+    gainNode.gain.value = this.state.volume;
     gainNode.connect(this.context.destination);
 
     sample.play(gainNode, 60, timestamp);
   }
 
-  noteOn(note: number, timestamp: number): void {
+  noteOn(_note: number, _timestamp: number): void {
     throw new Error("Method not implemented.");
   }
 
-  noteOff(note: number, timestamp: number): void {
+  noteOff(_note: number, _timestamp: number): void {
     throw new Error("Method not implemented.");
+  }
+
+  update<T extends DeviceParam>(param: T, value: number | string): void {
+    // @ts-ignore
+    this.state[param.name] = value;
+
+    this.notify({
+      type: "param_change",
+      param,
+    });
   }
 }

@@ -1,7 +1,5 @@
-import { EventListener } from "../mod";
+import { EventListener } from "../common/events";
 import { createDynamicWorker } from "./worker";
-
-type SchedulerListener = (timestamp: number) => void;
 
 const createTimerWorker = () => {
   const script = `

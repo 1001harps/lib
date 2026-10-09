@@ -14,7 +14,7 @@ export class SubtractiveSynth
 
   private voice?: SubtractiveSynthVoice;
 
-  state = {
+  static initialState = {
     volume: 0.5,
     waveform: "sine",
     octave: 0,
@@ -29,6 +29,8 @@ export class SubtractiveSynth
     lfoDestination: "freq",
     portamento: 0,
   };
+
+  state = SubtractiveSynth.initialState;
 
   params: DeviceParam[] = [
     numberParam("volume", 0, 1),

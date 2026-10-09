@@ -11,7 +11,8 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   samples: Sample[] = [];
 
   sampleFiles: string[];
-  state = {
+
+  static initialState = {
     volume: 0.75,
     sample: 0,
     octave: 0,
@@ -21,6 +22,8 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
     attack: 0,
     release: 0.3,
   };
+
+  state = SampleSynth.initialState;
 
   params: DeviceParam[] = [
     numberParam("volume"),

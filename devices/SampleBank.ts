@@ -11,9 +11,11 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
   context?: AudioContext;
   samples: Sample[] = [];
 
-  state = {
+  static initialState = {
     volume: 0.75,
   };
+
+  state = SampleBank.initialState;
 
   params = [numberParam("volume")];
 

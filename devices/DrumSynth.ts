@@ -14,7 +14,7 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
 
   context?: AudioContext;
 
-  state = {
+  static initialState = {
     "kick tune": 38,
     "kick punch": 0.18,
     "kick decay": 0.62,
@@ -26,6 +26,8 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
     "tom tune": 1,
     "tom decay": 0.35,
   };
+
+  state = DrumSynth.initialState;
 
   params = [
     numberParam("kick tune", 25, 100),
@@ -66,7 +68,8 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
         0.6,
         timestamp,
       );
-    if (note === 2) playClap(this.context, this.state["clap decay"], 1.1, timestamp);
+    if (note === 2)
+      playClap(this.context, this.state["clap decay"], 1.1, timestamp);
     if (note === 3)
       playHat(this.context, this.state["hh decay"], 0.36, false, timestamp);
     if (note === 4)

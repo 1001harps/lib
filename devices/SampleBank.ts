@@ -10,6 +10,7 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
 
   context?: AudioContext;
   samples: Sample[] = [];
+  outputGainMultiplier = 1;
 
   static initialState = {
     volume: 0.75,
@@ -40,7 +41,7 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
     if (!sample || !this.context) return;
 
     const gainNode = this.context.createGain();
-    gainNode.gain.value = this.state.volume;
+    gainNode.gain.value = this.state.volume * this.outputGainMultiplier;
     gainNode.connect(this.context.destination);
 
     sample.play(gainNode, 60, timestamp);

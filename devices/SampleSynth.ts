@@ -9,6 +9,7 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
 
   context: AudioContext | undefined;
   samples: Sample[] = [];
+  outputGainMultiplier = 1;
 
   sampleFiles: string[];
 
@@ -79,7 +80,8 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
 
     // gain node
     const gainNode = this.context.createGain();
-    gainNode.gain.value = 0.8 * this.state.volume * 1.5;
+    gainNode.gain.value =
+      0.8 * this.state.volume * 1.5 * this.outputGainMultiplier;
 
     env.destination.connect(filter);
     filter.connect(gainNode);

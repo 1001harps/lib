@@ -33,9 +33,9 @@ const createTimerWorker = () => {
 export class Scheduler extends EventListener<number> {
   audioContext: AudioContext;
 
-  lookaheadTimeMs = 50.0;
-  scheduleAheadTime = 0.1;
-  startDelay = 0.01;
+  lookaheadTimeMs = 25.0;
+  scheduleAheadTime = 0.2;
+  startDelay = 0.05;
   nextNoteTime = 0.0;
 
   worker: Worker;
@@ -45,6 +45,7 @@ export class Scheduler extends EventListener<number> {
   private _bpm = 120;
   private anchorTime = 0.0;
   private nextStep = 0;
+  private lastScheduledTime: number | null = null;
   private disposed = false;
 
   private static readonly MAX_EVENTS_PER_TICK = 1_000;
@@ -82,7 +83,7 @@ export class Scheduler extends EventListener<number> {
     this.nextNoteTime = this.anchorTime + this.nextStep * this.secondsPerStep;
   }
 
-  private tick() {
+  private tick(allowCurrentTime = false) {
     const now = this.audioContext.currentTime;
     const scheduleAheadTime = this.requireFinitePositive(
       this.scheduleAheadTime,
@@ -92,10 +93,12 @@ export class Scheduler extends EventListener<number> {
 
     // Skip missed steps while keeping the original musical grid. Resetting to
     // `now` here would turn every delayed timer callback into permanent drift.
-    if (this.nextNoteTime < now) {
-      const nextFutureStep = Math.ceil(
-        (now - this.anchorTime) / secondsPerStep,
-      );
+    if (
+      this.nextNoteTime < now ||
+      (!allowCurrentTime && this.nextNoteTime === now)
+    ) {
+      const nextFutureStep =
+        Math.floor((now - this.anchorTime) / secondsPerStep) + 1;
       this.nextStep = Math.max(this.nextStep, nextFutureStep);
       this.updateNextNoteTime();
     }
@@ -114,6 +117,7 @@ export class Scheduler extends EventListener<number> {
       this.nextStep += 1;
       this.updateNextNoteTime();
       eventsScheduled += 1;
+      this.lastScheduledTime = scheduledTime;
 
       this.notify(scheduledTime);
     }
@@ -137,6 +141,7 @@ export class Scheduler extends EventListener<number> {
 
     this.anchorTime = this.audioContext.currentTime + startDelay;
     this.nextStep = 0;
+    this.lastScheduledTime = null;
     this.updateNextNoteTime();
     this.playing = true;
 
@@ -147,7 +152,7 @@ export class Scheduler extends EventListener<number> {
 
     // Fill the lookahead window immediately rather than waiting for the first
     // worker callback, whose arrival time is intentionally not precise.
-    this.tick();
+    this.tick(true);
   }
 
   stop() {
@@ -169,24 +174,29 @@ export class Scheduler extends EventListener<number> {
     if (this.playing) {
       const now = this.audioContext.currentTime;
       const oldSecondsPerStep = this.secondsPerStep;
+      const newSecondsPerStep = 15.0 / bpm;
 
-      // Apply the new tempo at the first step which has not already been
-      // scheduled. If the scheduler is late, retain the old grid while finding
-      // that boundary rather than snapping it to the current time.
-      if (this.nextNoteTime < now) {
-        const nextFutureStep = Math.ceil(
-          (now - this.anchorTime) / oldSecondsPerStep,
-        );
-        this.nextStep = Math.max(this.nextStep, nextFutureStep);
-        this.updateNextNoteTime();
+      if (this.lastScheduledTime === null) {
+        this.anchorTime = now;
+      } else if (this.lastScheduledTime >= now) {
+        this.anchorTime = this.lastScheduledTime + newSecondsPerStep;
+      } else {
+        const elapsed = now - this.lastScheduledTime;
+        const plannedStepDuration = this.nextNoteTime - this.lastScheduledTime;
+        const currentStepDuration =
+          plannedStepDuration > 0 ? plannedStepDuration : oldSecondsPerStep;
+        const progress = Math.min(elapsed / currentStepDuration, 1);
+        this.anchorTime = now + (1 - progress) * newSecondsPerStep;
       }
 
-      this.anchorTime = this.nextNoteTime;
       this.nextStep = 0;
     }
 
     this._bpm = bpm;
-    if (this.playing) this.updateNextNoteTime();
+    if (this.playing) {
+      this.updateNextNoteTime();
+      this.tick(true);
+    }
   }
 
   dispose() {

@@ -1,4 +1,4 @@
-import { EventListener } from "../common/events";
+import { EventListener } from "../common/events.ts";
 
 export type Device = {
   name: string;

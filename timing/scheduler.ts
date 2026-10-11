@@ -1,5 +1,5 @@
-import { EventListener } from "../common/events";
-import { createDynamicWorker } from "./worker";
+import { EventListener } from "../common/events.ts";
+import { createDynamicWorker } from "./worker.ts";
 
 const createTimerWorker = () => {
   const script = `

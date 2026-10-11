@@ -1,5 +1,5 @@
-import { EventListener } from "../common/events";
-import type { MidiMessageEvent } from "../midi";
+import { EventListener } from "../common/events.ts";
+import type { MidiMessageEvent } from "../midi/index.ts";
 
 const KEYS = "awsedftgyhujk".split("");
 

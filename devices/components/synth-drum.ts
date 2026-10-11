@@ -45,9 +45,10 @@ export function playTom(
   decay = 0.35,
   gain = 0.5,
   startTime = context.currentTime,
+  output: AudioNode = context.destination,
 ): void {
   const body = makeResonator(context, freq, decay, gain, 50, startTime);
-  body.connect(context.destination);
+  body.connect(output);
 }
 
 export function playSnare(
@@ -57,6 +58,7 @@ export function playSnare(
   bodyDecay = 0.18,
   gain = 0.6,
   startTime = context.currentTime,
+  output: AudioNode = context.destination,
 ): void {
   // resonator for "shell"
   const body = makeResonator(context, bodyFreq, bodyDecay, gain, 0, startTime); // no highpass for shell
@@ -64,9 +66,9 @@ export function playSnare(
   // snare wires (noise burst)
   const bufferSize = Math.floor(context.sampleRate * noiseDecay);
   const noiseBuffer = context.createBuffer(1, bufferSize, context.sampleRate);
-  const output = noiseBuffer.getChannelData(0);
+  const noise = noiseBuffer.getChannelData(0);
   for (let i = 0; i < bufferSize; i++) {
-    output[i] = Math.random() * 2 - 1;
+    noise[i] = Math.random() * 2 - 1;
   }
 
   const noiseSource = context.createBufferSource();
@@ -90,7 +92,7 @@ export function playSnare(
 
   body.connect(snareMix);
   noiseEnv.connect(snareMix);
-  snareMix.connect(context.destination);
+  snareMix.connect(output);
 
   // clean up after sound ends
   noiseSource.start(startTime);
@@ -110,6 +112,7 @@ export function playClap(
   decay = 0.16,
   gain = 1.1,
   startTime = context.currentTime,
+  output: AudioNode = context.destination,
 ): void {
   const t = startTime;
 
@@ -153,7 +156,7 @@ export function playClap(
   const out = context.createGain();
   out.gain.value = 0.6;
   env.connect(out);
-  out.connect(context.destination);
+  out.connect(output);
 
   // play and clean up
   noiseSource.start(t);
@@ -176,6 +179,7 @@ export function playKick(
   ampDecay = 0.62, // long ring out
   gain = 1.2,
   startTime = context.currentTime,
+  output: AudioNode = context.destination,
 ): void {
   const t = startTime;
 
@@ -190,7 +194,7 @@ export function playKick(
   env.gain.setValueAtTime(gain, t);
   env.gain.exponentialRampToValueAtTime(0.0001, t + ampDecay);
 
-  osc.connect(env).connect(context.destination);
+  osc.connect(env).connect(output);
 
   // start and stop
   osc.start(t);
@@ -209,6 +213,7 @@ export function playHat(
   gain = 0.38,
   isOpen = false, // if true, longer decay and louder
   startTime = context.currentTime,
+  output: AudioNode = context.destination,
 ): void {
   const t = startTime;
   const actualDecay = isOpen ? 0.23 : decay;
@@ -217,8 +222,8 @@ export function playHat(
   // noise burst
   const bufferSize = Math.floor(context.sampleRate * (actualDecay + 0.05));
   const noiseBuffer = context.createBuffer(1, bufferSize, context.sampleRate);
-  const output = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+  const noise = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) noise[i] = Math.random() * 2 - 1;
 
   const noiseSource = context.createBufferSource();
   noiseSource.buffer = noiseBuffer;
@@ -238,7 +243,7 @@ export function playHat(
   env.gain.setValueAtTime(actualGain, t);
   env.gain.exponentialRampToValueAtTime(0.0001, t + actualDecay);
 
-  noiseSource.connect(bp).connect(hp).connect(env).connect(context.destination);
+  noiseSource.connect(bp).connect(hp).connect(env).connect(output);
 
   noiseSource.start(t);
   noiseSource.stop(t + actualDecay + 0.02);

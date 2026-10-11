@@ -1,20 +1,22 @@
-import { EventListener } from "../common/events";
-import { numberParam } from "./types";
-import type { Device, DeviceEvent, DeviceParam } from "./types";
+import { EventListener } from "../common/events.ts";
+import { numberParam } from "./types.ts";
+import type { Device, DeviceEvent, DeviceParam } from "./types.ts";
 import {
   playKick,
   playSnare,
   playClap,
   playHat,
   playTom,
-} from "./components/synth-drum";
+} from "./components/synth-drum.ts";
 
 export class DrumSynth extends EventListener<DeviceEvent> implements Device {
   name = "DrumSynth";
 
   context?: AudioContext;
+  gainNode?: GainNode;
 
   static initialState = {
+    volume: 0.75,
     "kick tune": 38,
     "kick punch": 0.18,
     "kick decay": 0.62,
@@ -30,6 +32,7 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
   state = DrumSynth.initialState;
 
   params = [
+    numberParam("volume"),
     numberParam("kick tune", 25, 100),
     numberParam("kick punch", 0.02, 0.5),
     numberParam("kick decay", 0.05, 2),
@@ -44,10 +47,14 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
 
   async init(context: AudioContext) {
     this.context = context;
+    this.gainNode = context.createGain();
+    this.gainNode.connect(context.destination);
   }
 
   trigger(note: number, timestamp: number): void {
     if (!this.context) return;
+
+    this.gainNode.gain.value = this.state.volume;
 
     if (note === 0)
       playKick(
@@ -58,6 +65,7 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
         this.state["kick decay"],
         0.7,
         timestamp,
+        this.gainNode,
       );
     if (note === 1)
       playSnare(
@@ -67,13 +75,34 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
         this.state["snare decay"],
         0.6,
         timestamp,
+        this.gainNode,
       );
     if (note === 2)
-      playClap(this.context, this.state["clap decay"], 1.1, timestamp);
+      playClap(
+        this.context,
+        this.state["clap decay"],
+        1.1,
+        timestamp,
+        this.gainNode,
+      );
     if (note === 3)
-      playHat(this.context, this.state["hh decay"], 0.36, false, timestamp);
+      playHat(
+        this.context,
+        this.state["hh decay"],
+        0.36,
+        false,
+        timestamp,
+        this.gainNode,
+      );
     if (note === 4)
-      playHat(this.context, this.state["hh decay"], 0.36, true, timestamp);
+      playHat(
+        this.context,
+        this.state["hh decay"],
+        0.36,
+        true,
+        timestamp,
+        this.gainNode,
+      );
     if (note === 5)
       playTom(
         this.context,
@@ -81,6 +110,7 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
         this.state["tom decay"],
         0.5,
         timestamp,
+        this.gainNode,
       );
     if (note === 6)
       playTom(
@@ -89,6 +119,7 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
         this.state["tom decay"],
         0.5,
         timestamp,
+        this.gainNode,
       );
   }
 

@@ -1,6 +1,6 @@
 import { numberParam } from "./types.ts";
 import type { Device, DeviceEvent, DeviceParam } from "./types.ts";
-import { Sample, fetchSample } from "../audio.ts";
+import { loadSample, Sample } from "../audio.ts";
 import { EventListener } from "../common/events.ts";
 
 export class SampleBank extends EventListener<DeviceEvent> implements Device {
@@ -28,11 +28,9 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
   async init(context: AudioContext): Promise<void> {
     this.context = context;
 
-    const sampleData = await Promise.all(
-      this.files.map((filename) => fetchSample(context, filename, filename)),
+    this.samples = await Promise.all(
+      this.files.map((filename) => loadSample(context, filename)),
     );
-
-    this.samples = sampleData.map((s) => new Sample(context, s.name, s.buffer));
   }
 
   trigger(note: number, timestamp: number): void {

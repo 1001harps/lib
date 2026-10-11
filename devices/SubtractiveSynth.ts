@@ -10,6 +10,7 @@ export class SubtractiveSynth extends EventListener<DeviceEvent>
   name = "SubtractiveSynth";
 
   context?: AudioContext;
+  output?: AudioNode;
   polyphonic = false;
 
   voices = new VoiceManager();
@@ -46,15 +47,16 @@ export class SubtractiveSynth extends EventListener<DeviceEvent>
     selectParam("lfoDestination", ["freq", "filterCutoff", "volume"]),
   ];
 
-  async init(context: AudioContext) {
+  async init(context: AudioContext, output: AudioNode = context.destination) {
     this.context = context;
+    this.output = output;
   }
 
   trigger(note: number, timestamp: number): void {
-    if (!this.context) return;
+    if (!this.context || !this.output) return;
 
     const now = timestamp === 0 ? this.context.currentTime : timestamp;
-    const voice = new SubtractiveSynthVoice(this.context);
+    const voice = new SubtractiveSynthVoice(this.context, this.output);
     const endTime = now + this.state.attack + this.state.release;
 
     const offset = Math.floor(this.state.octave) * 12;

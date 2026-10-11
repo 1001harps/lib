@@ -9,6 +9,7 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
   files: string[];
 
   context?: AudioContext;
+  output?: AudioNode;
   samples: Sample[] = [];
   outputGainMultiplier = 1;
 
@@ -25,8 +26,12 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
     this.files = files;
   }
 
-  async init(context: AudioContext): Promise<void> {
+  async init(
+    context: AudioContext,
+    output: AudioNode = context.destination,
+  ): Promise<void> {
     this.context = context;
+    this.output = output;
 
     this.samples = await Promise.all(
       this.files.map((filename) => loadSample(context, filename)),
@@ -36,11 +41,11 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
   trigger(note: number, timestamp: number): void {
     const sample = this.samples[note];
 
-    if (!sample || !this.context) return;
+    if (!sample || !this.context || !this.output) return;
 
     const gainNode = this.context.createGain();
     gainNode.gain.value = this.state.volume * this.outputGainMultiplier;
-    gainNode.connect(this.context.destination);
+    gainNode.connect(this.output);
 
     sample.play(gainNode, 60, timestamp);
   }

@@ -10,6 +10,7 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   name = "SampleSynth";
 
   context: AudioContext | undefined;
+  output: AudioNode | undefined;
   samples: Sample[] = [];
   outputGainMultiplier = 1;
   polyphonic = true;
@@ -51,8 +52,12 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
     return Math.floor(this.state.sample * (this.samples.length - 1));
   }
 
-  async init(context: AudioContext): Promise<void> {
+  async init(
+    context: AudioContext,
+    output: AudioNode = context.destination,
+  ): Promise<void> {
     this.context = context;
+    this.output = output;
 
     this.samples = await Promise.all(
       this.sampleSources.map((source) => loadSample(context, source)),
@@ -60,7 +65,7 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   }
 
   trigger(note: number, timestamp: number): void {
-    if (!this.context) return;
+    if (!this.context || !this.output) return;
 
     const sample = this.samples[this.getSampleIndex()] as Sample;
     if (!sample) return;
@@ -69,7 +74,7 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
     const now = timestamp === 0 ? this.context.currentTime : timestamp;
     const endTime = now + this.state.attack + this.state.release;
 
-    const voice = new SampleSynthVoice(this.context, sample);
+    const voice = new SampleSynthVoice(this.context, sample, this.output);
     voice.apply(this.state, this.outputGainMultiplier, now);
     voice.trigger(note + offset, timestamp);
 

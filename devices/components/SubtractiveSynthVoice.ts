@@ -29,13 +29,13 @@ export class SubtractiveSynthVoice implements ManagedVoice {
   lfoGain: GainNode;
   context: AudioContext;
 
-  constructor(context: AudioContext) {
+  constructor(context: AudioContext, output?: AudioNode) {
     this.context = context;
     this.osc1 = context.createOscillator();
     this.osc2 = context.createOscillator();
     this.oscillatorMix = context.createGain();
     this.oscillatorMix.gain.value = OSCILLATOR_MIX_GAIN;
-    this.output = new SynthVoiceOutput(context);
+    this.output = new SynthVoiceOutput(context, output);
 
     this.lfo = context.createOscillator();
     this.lfo.type = "triangle";

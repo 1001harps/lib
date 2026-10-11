@@ -45,10 +45,10 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
     numberParam("tom decay", 0.05, 2),
   ];
 
-  async init(context: AudioContext) {
+  async init(context: AudioContext, output: AudioNode = context.destination) {
     this.context = context;
     this.gainNode = context.createGain();
-    this.gainNode.connect(context.destination);
+    this.gainNode.connect(output);
   }
 
   trigger(note: number, timestamp: number): void {

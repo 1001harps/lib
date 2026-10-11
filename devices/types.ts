@@ -2,7 +2,7 @@ import { EventListener } from "../common/events.ts";
 
 export type Device = {
   name: string;
-  init(context?: AudioContext): Promise<void>;
+  init(context?: AudioContext, output?: AudioNode): Promise<void>;
   trigger(note: number, timestamp: number): void;
   noteOn(note: number, timestamp: number): void;
   noteOff(note: number, timestamp: number): void;

@@ -10,9 +10,9 @@ export class SampleSynthVoice implements ManagedVoice {
   source?: AudioBufferSourceNode;
   sample: Sample;
 
-  constructor(context: AudioContext, sample: Sample) {
+  constructor(context: AudioContext, sample: Sample, output?: AudioNode) {
     this.sample = sample;
-    this.output = new SynthVoiceOutput(context);
+    this.output = new SynthVoiceOutput(context, output);
   }
 
   apply(

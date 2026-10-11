@@ -18,7 +18,10 @@ export class SynthVoiceOutput {
   amplitude: GainNode;
   voiceGain: GainNode;
 
-  constructor(context: AudioContext) {
+  constructor(
+    context: AudioContext,
+    output: AudioNode = context.destination,
+  ) {
     this.env = new AttackReleaseEnv(context);
     this.filter = new SynthFilter(context, this.env);
     this.amplitude = context.createGain();
@@ -29,7 +32,7 @@ export class SynthVoiceOutput {
     this.filter.node.connect(this.amplitude);
     this.amplitude.connect(this.volume);
     this.volume.connect(this.voiceGain);
-    this.voiceGain.connect(context.destination);
+    this.voiceGain.connect(output);
 
     this.env.connect(this.amplitude.gain, AMPLITUDE_ENV_AMOUNT);
   }

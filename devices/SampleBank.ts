@@ -17,7 +17,9 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
     volume: 0.75,
   };
 
-  state = SampleBank.initialState;
+  state: typeof SampleBank.initialState & Record<string, number | string> = {
+    ...SampleBank.initialState,
+  };
 
   params = [numberParam("volume")];
 
@@ -59,7 +61,6 @@ export class SampleBank extends EventListener<DeviceEvent> implements Device {
   }
 
   update<T extends DeviceParam>(param: T, value: number | string): void {
-    // @ts-ignore
     this.state[param.name] = value;
 
     this.notify({

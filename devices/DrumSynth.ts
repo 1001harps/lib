@@ -29,7 +29,9 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
     "tom decay": 0.35,
   };
 
-  state = DrumSynth.initialState;
+  state: typeof DrumSynth.initialState & Record<string, number | string> = {
+    ...DrumSynth.initialState,
+  };
 
   params = [
     numberParam("volume"),
@@ -132,7 +134,6 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
   }
 
   update<T extends DeviceParam>(param: T, value: number | string) {
-    // @ts-ignore
     this.state[param.name] = value;
     this.notify({ type: "param_change", param });
   }

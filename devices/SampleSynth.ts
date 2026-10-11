@@ -30,7 +30,9 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
     release: 0.3,
   };
 
-  state = { ...SampleSynth.initialState };
+  state: typeof SampleSynth.initialState & Record<string, number | string> = {
+    ...SampleSynth.initialState,
+  };
 
   params: DeviceParam[] = [
     numberParam("volume"),
@@ -90,7 +92,6 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   }
 
   update<T extends DeviceParam>(param: T, value: number | string): void {
-    // @ts-ignore
     this.state[param.name] = value;
 
     this.notify({

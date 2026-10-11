@@ -30,7 +30,10 @@ export class SubtractiveSynth extends EventListener<DeviceEvent>
     lfoDestination: "freq",
   };
 
-  state = { ...SubtractiveSynth.initialState };
+  state: typeof SubtractiveSynth.initialState & Record<string, number | string> =
+    {
+      ...SubtractiveSynth.initialState,
+    };
 
   params: DeviceParam[] = [
     numberParam("volume", 0, 1),
@@ -78,7 +81,6 @@ export class SubtractiveSynth extends EventListener<DeviceEvent>
   }
 
   update<T extends DeviceParam>(param: T, value: number | string) {
-    // @ts-ignore
     this.state[param.name] = value;
     this.notify({ type: "param_change", param });
   }

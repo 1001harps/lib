@@ -61,8 +61,11 @@ export class MIDI extends EventListener<MidiMessageEvent> {
       break;
     }
 
-    const input = this.input();
-    input.onmidimessage = this.#onmessage.bind(this);
+    const input = this.midi().inputs.get(this.inputId);
+
+    if (input) {
+      input.onmidimessage = this.#onmessage.bind(this);
+    }
   }
 
   static async create() {
@@ -75,7 +78,7 @@ export class MIDI extends EventListener<MidiMessageEvent> {
     if (!ev.data) return;
 
     const [status, note, velocity] = ev.data;
-    const channel = (status & 0x0f) + 1;
+    const channel = status & 0x0f;
     const command = status & 0xf0;
 
     if (command === NOTE_ON) {
@@ -93,8 +96,8 @@ export class MIDI extends EventListener<MidiMessageEvent> {
   }
 
   midi() {
-    if (!this.midi) throw "MIDIAccess not initialised";
-    return this.#midi!;
+    if (!this.#midi) throw "MIDIAccess not initialised";
+    return this.#midi;
   }
 
   inputs() {
@@ -119,11 +122,14 @@ export class MIDI extends EventListener<MidiMessageEvent> {
 
   selectInput(id: string) {
     // clear prev listener
-    this.input().onmidimessage = null;
+    const previous = this.midi().inputs.get(this.inputId);
+    if (previous) previous.onmidimessage = null;
 
     this.inputId = id;
 
-    this.input().onmidimessage = this.#onmessage.bind(this);
+    const input = this.midi().inputs.get(id);
+    if (!input) throw new Error(`MIDI input ${id} not found`);
+    input.onmidimessage = this.#onmessage.bind(this);
   }
 
   selectOutput(id: string) {

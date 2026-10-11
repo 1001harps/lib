@@ -52,7 +52,7 @@ export class DrumSynth extends EventListener<DeviceEvent> implements Device {
   }
 
   trigger(note: number, timestamp: number): void {
-    if (!this.context) return;
+    if (!this.context || !this.gainNode) return;
 
     this.gainNode.gain.value = this.state.volume;
 

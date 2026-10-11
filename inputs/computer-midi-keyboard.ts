@@ -1,12 +1,12 @@
-import { EventListener } from "../common/events";
-import { MidiEvent } from "../midi/events";
+import { EventListener } from "../common/events.ts";
+import type { MidiMessageEvent } from "../midi/index.ts";
 
 const KEYS = "awsedftgyhujk".split("");
 
 const OCTAVE_UP_KEY = "z";
 const OCTAVE_DOWN_KEY = "x";
 
-export class ComputerMidiKeyboard extends EventListener<MidiEvent> {
+export class ComputerMidiKeyboard extends EventListener<MidiMessageEvent> {
   private octave = 4;
 
   constructor() {
@@ -36,6 +36,8 @@ export class ComputerMidiKeyboard extends EventListener<MidiEvent> {
       this.notify({
         type: "note_on",
         note: KEYS.indexOf(key),
+        channel: 0,
+        velocity: 127,
       });
     } else if (key === OCTAVE_UP_KEY) {
       this.octaveUp();
@@ -51,6 +53,8 @@ export class ComputerMidiKeyboard extends EventListener<MidiEvent> {
       this.notify({
         type: "note_off",
         note: KEYS.indexOf(key),
+        channel: 0,
+        velocity: 127,
       });
     }
   };

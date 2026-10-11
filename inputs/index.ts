@@ -1,1 +1,1 @@
-export * from "./computer-midi-keyboard";
+export * from "./computer-midi-keyboard.ts";

@@ -1,4 +1,4 @@
-export * from "./events.ts";
+import { EventListener } from "../common/events.ts";
 
 /**
    * Get the frequency of a MIDI note number 
@@ -11,46 +11,148 @@ export const midiNoteToFrequency = (note: number): number => {
   return 440 * Math.pow(2, (note - a4) / 12);
 };
 
-const NOTE_ON = 0x90;
-const NOTE_OFF = 0x80;
+export const NOTE_ON = 0x90;
+export const NOTE_OFF = 0x80;
+
+export type MidiMessageEvent =
+  | {
+      type: "note_on";
+      channel: number;
+      note: number;
+      velocity: number;
+    }
+  | {
+      type: "note_off";
+      channel: number;
+      note: number;
+      velocity: number;
+    }
+  // TODO: other message types
+  | {
+      type: "other";
+      raw: Uint8Array<ArrayBuffer>;
+    };
 
 /**
- * Returns the first available MIDI output
- *
- * @returns MIDIOutput
+ * Provides access to Web MIDI input and output devices and emits incoming MIDI messages.
  */
-export const getFirstMidiOutput = async (): Promise<WebMidi.MIDIOutput> => {
-  const midiAccess = await navigator.requestMIDIAccess();
+export class MIDI extends EventListener<MidiMessageEvent> {
+  #midi?: MIDIAccess;
 
-  const outputs = midiAccess.outputs.values();
+  inputId = "";
+  outputId = "";
 
-  for (let output of outputs) {
+  constructor() {
+    super();
+  }
+
+  async init() {
+    this.#midi = await navigator.requestMIDIAccess();
+
+    const inputs = this.inputs();
+    for (const input of inputs) {
+      this.inputId = input.id;
+      break;
+    }
+
+    const outputs = this.outputs();
+    for (const output of outputs) {
+      this.outputId = output.id;
+      break;
+    }
+
+    const input = this.midi().inputs.get(this.inputId);
+
+    if (input) {
+      input.onmidimessage = this.#onmessage.bind(this);
+    }
+  }
+
+  static async create(): Promise<MIDI> {
+    const midi = new MIDI();
+    await midi.init();
+    return midi;
+  }
+
+  #onmessage(ev: MIDIMessageEvent) {
+    if (!ev.data) return;
+
+    const [status, note, velocity] = ev.data;
+    const channel = status & 0x0f;
+    const command = status & 0xf0;
+
+    if (command === NOTE_ON) {
+      this.notify({
+        type: velocity === 0 ? "note_off" : "note_on",
+        channel,
+        note,
+        velocity,
+      });
+    } else if (command === NOTE_OFF) {
+      this.notify({ type: "note_off", channel, note, velocity });
+    } else {
+      this.notify({ type: "other", raw: ev.data });
+    }
+  }
+
+  midi(): MIDIAccess {
+    if (!this.#midi) throw "MIDIAccess not initialised";
+    return this.#midi;
+  }
+
+  inputs(): IterableIterator<MIDIInput> {
+    return this.midi().inputs.values();
+  }
+
+  outputs(): IterableIterator<MIDIOutput> {
+    return this.midi().outputs.values();
+  }
+
+  input(): MIDIInput {
+    const input = this.midi().inputs.get(this.inputId);
+    if (!input) throw new Error(`MIDI input ${this.inputId} not found`);
+    return input;
+  }
+
+  output(): MIDIOutput {
+    const output = this.midi().outputs.get(this.outputId);
+    if (!output) throw new Error(`MIDI output ${this.outputId} not found`);
     return output;
   }
 
-  throw "failed to get midi output";
-};
+  selectInput(id: string) {
+    // clear prev listener
+    const previous = this.midi().inputs.get(this.inputId);
+    if (previous) previous.onmidimessage = null;
 
-//
-/**
- * Simple note trigger, note on with immediate note off
- *
- * @param midiOutput MIDIOutput to send the trigger on
- * @param note The MIDI note number
- * @param number The MIDI channel number
- */
-export const triggerNote = function (
-  midiOutput: WebMidi.MIDIOutput,
-  channel: number,
-  note: number
-): void {
-  if (!midiOutput) {
-    throw "no midi output";
+    this.inputId = id;
+
+    const input = this.midi().inputs.get(id);
+    if (!input) throw new Error(`MIDI input ${id} not found`);
+    input.onmidimessage = this.#onmessage.bind(this);
   }
 
-  midiOutput.send([NOTE_ON | channel, note, 127]);
+  selectOutput(id: string) {
+    this.outputId = id;
+  }
 
-  setTimeout(() => {
-    midiOutput.send([NOTE_OFF | channel, note, 127]);
-  }, 1);
-};
+  send(data: Iterable<number>, timestamp?: number | undefined) {
+    this.output().send(data, timestamp);
+  }
+
+  noteOn(channel: number, note: number, velocity: number = 127) {
+    this.send([NOTE_ON | channel, note, velocity]);
+  }
+
+  noteOff(channel: number, note: number, velocity: number = 127) {
+    this.send([NOTE_OFF | channel, note, velocity]);
+  }
+
+  trigger(channel: number, note: number, velocity: number = 127) {
+    this.noteOn(channel, note, velocity);
+
+    setTimeout(() => {
+      this.noteOff(channel, note, velocity);
+    }, 1);
+  }
+}

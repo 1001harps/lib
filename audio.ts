@@ -3,10 +3,10 @@ import { midiNoteToFrequency } from "./midi/index.ts";
 export type SampleSource =
   | string
   | {
-      path: string;
-      name?: string;
-      rootNote?: number;
-    };
+    path: string;
+    name?: string;
+    rootNote?: number;
+  };
 
 export const fetchSample = (
   context: AudioContext,
@@ -21,7 +21,7 @@ export const fetchSample = (
       .then((r) => r.arrayBuffer())
       .then((buffer) => context.decodeAudioData(buffer))
       .then((buffer) => resolve({ buffer, name }))
-      .catch((err) => reject(err)),
+      .catch((err) => reject(err))
   );
 };
 
@@ -69,5 +69,7 @@ export class Sample {
 
     source.connect(destination);
     source.start(timestamp);
+
+    return source;
   }
 }

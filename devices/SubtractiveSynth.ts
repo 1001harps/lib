@@ -1,18 +1,18 @@
-import { EventListener } from "../common/events";
-import { midiNoteToFrequency } from "../midi";
-import { SubtractiveSynthVoice } from "./components/SubtractiveSynthVoice";
-import { numberParam, selectParam } from "./types";
-import type { Device, DeviceEvent, DeviceParam } from "./types";
+import { EventListener } from "../common/events.ts";
+import { midiNoteToFrequency } from "../midi/index.ts";
+import { SubtractiveSynthVoice } from "./components/SubtractiveSynthVoice.ts";
+import { VoiceManager } from "./components/VoiceManager.ts";
+import { numberParam, selectParam } from "./types.ts";
+import type { Device, DeviceEvent, DeviceParam } from "./types.ts";
 
-export class SubtractiveSynth
-  extends EventListener<DeviceEvent>
-  implements Device
-{
+export class SubtractiveSynth extends EventListener<DeviceEvent>
+  implements Device {
   name = "SubtractiveSynth";
 
   context?: AudioContext;
+  polyphonic = false;
 
-  private voice?: SubtractiveSynthVoice;
+  voices = new VoiceManager();
 
   static initialState = {
     volume: 0.5,
@@ -27,10 +27,9 @@ export class SubtractiveSynth
     lfoSpeed: 4,
     lfoIntensity: 0,
     lfoDestination: "freq",
-    portamento: 0,
   };
 
-  state = SubtractiveSynth.initialState;
+  state = { ...SubtractiveSynth.initialState };
 
   params: DeviceParam[] = [
     numberParam("volume", 0, 1),
@@ -45,7 +44,6 @@ export class SubtractiveSynth
     numberParam("lfoSpeed", 0.1, 20),
     numberParam("lfoIntensity"),
     selectParam("lfoDestination", ["freq", "filterCutoff", "volume"]),
-    numberParam("portamento"),
   ];
 
   async init(context: AudioContext) {
@@ -55,19 +53,18 @@ export class SubtractiveSynth
   trigger(note: number, timestamp: number): void {
     if (!this.context) return;
 
-    const isNewVoice = !this.voice;
-    if (isNewVoice) {
-      this.voice = new SubtractiveSynthVoice(this.context);
-    }
-    const voice = this.voice!;
+    const now = timestamp === 0 ? this.context.currentTime : timestamp;
+    const voice = new SubtractiveSynthVoice(this.context);
+    const endTime = now + this.state.attack + this.state.release;
 
     const offset = Math.floor(this.state.octave) * 12;
     const freq = midiNoteToFrequency(note + offset);
-    const now = timestamp === 0 ? this.context.currentTime : timestamp;
 
-    voice.setPitch(freq, this.state.portamento, now);
-    voice.apply({ ...this.state });
+    voice.setPitch(freq, now);
+    voice.apply(this.state, now);
     voice.trigger(timestamp);
+
+    this.voices.add(voice, now, endTime, this.polyphonic);
   }
 
   noteOn(_note: number, _timestamp: number): void {

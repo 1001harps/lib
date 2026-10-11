@@ -1,8 +1,10 @@
-import { fetchSample, Sample } from "../audio";
-import { EventListener } from "../common/events";
-import { AttackReleaseEnv } from "./components/AttackReleaseEnv";
-import { numberParam } from "./types";
-import type { Device, DeviceParam, DeviceEvent } from "./types";
+import type { SampleSource } from "../audio.ts";
+import { loadSample, Sample } from "../audio.ts";
+import { EventListener } from "../common/events.ts";
+import { SampleSynthVoice } from "./components/SampleSynthVoice.ts";
+import { VoiceManager } from "./components/VoiceManager.ts";
+import type { Device, DeviceEvent, DeviceParam } from "./types.ts";
+import { numberParam } from "./types.ts";
 
 export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   name = "SampleSynth";
@@ -10,8 +12,11 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   context: AudioContext | undefined;
   samples: Sample[] = [];
   outputGainMultiplier = 1;
+  polyphonic = true;
 
-  sampleFiles: string[];
+  voices = new VoiceManager();
+
+  sampleSources: SampleSource[];
 
   static initialState = {
     volume: 0.75,
@@ -24,7 +29,7 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
     release: 0.3,
   };
 
-  state = SampleSynth.initialState;
+  state = { ...SampleSynth.initialState };
 
   params: DeviceParam[] = [
     numberParam("volume"),
@@ -37,9 +42,9 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
     numberParam("release"),
   ];
 
-  constructor(sampleFiles: string[]) {
+  constructor(sampleSources: SampleSource[]) {
     super();
-    this.sampleFiles = sampleFiles;
+    this.sampleSources = sampleSources;
   }
 
   private getSampleIndex() {
@@ -49,48 +54,26 @@ export class SampleSynth extends EventListener<DeviceEvent> implements Device {
   async init(context: AudioContext): Promise<void> {
     this.context = context;
 
-    const samples = await Promise.all(
-      this.sampleFiles.map(async (x) => {
-        const sample = await fetchSample(context, x, x);
-        return {
-          name: sample.name,
-          sample: new Sample(context, sample.name, sample.buffer),
-        };
-      }),
+    this.samples = await Promise.all(
+      this.sampleSources.map((source) => loadSample(context, source)),
     );
-
-    this.samples = samples.map((x) => x.sample);
   }
 
   trigger(note: number, timestamp: number): void {
     if (!this.context) return;
 
     const sample = this.samples[this.getSampleIndex()] as Sample;
-
-    const env = new AttackReleaseEnv(this.context);
-    env.attack = this.state.attack;
-    env.release = this.state.release;
-
-    // filter, TODO: replace this with something nicer
-    const filter = this.context.createBiquadFilter();
-
-    filter.type = "lowpass";
-    filter.frequency.value = this.state.filterCutoff * 7000;
-    filter.Q.value = this.state.filterRes * 30;
-
-    // gain node
-    const gainNode = this.context.createGain();
-    gainNode.gain.value =
-      0.8 * this.state.volume * 1.5 * this.outputGainMultiplier;
-
-    env.destination.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(this.context.destination);
+    if (!sample) return;
 
     const offset = Math.floor(this.state.octave) * 12;
+    const now = timestamp === 0 ? this.context.currentTime : timestamp;
+    const endTime = now + this.state.attack + this.state.release;
 
-    env.trigger(timestamp);
-    sample.play(env.destination, note + offset, timestamp);
+    const voice = new SampleSynthVoice(this.context, sample);
+    voice.apply(this.state, this.outputGainMultiplier, now);
+    voice.trigger(note + offset, timestamp);
+
+    this.voices.add(voice, now, endTime, this.polyphonic);
   }
 
   noteOn(_note: number, _timestamp: number): void {

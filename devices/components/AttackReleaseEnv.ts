@@ -3,34 +3,44 @@ export class AttackReleaseEnv {
   attack: number = 0;
   release: number = 0.5;
 
-  public destination: GainNode;
+  output: ConstantSourceNode;
 
   constructor(context: AudioContext) {
     this.context = context;
 
-    this.destination = this.context.createGain();
-    this.destination.gain.value = 0;
+    this.output = this.context.createConstantSource();
+    this.output.offset.value = 0;
+  }
+
+  connect(param: AudioParam, amount: number): GainNode {
+    const amountNode = this.context.createGain();
+    amountNode.gain.value = amount;
+    this.output.connect(amountNode);
+    amountNode.connect(param);
+    return amountNode;
   }
 
   trigger(timestamp: number) {
-    this.destination.gain.cancelScheduledValues(0);
-    this.destination.gain.value = 0;
-
     if (timestamp === 0) {
       timestamp = this.context.currentTime;
     }
 
+    this.output.offset.setValueAtTime(0, timestamp);
+
     if (this.attack === 0) {
-      this.destination.gain.setValueAtTime(0.3, timestamp);
+      this.output.offset.setValueAtTime(1, timestamp);
     } else {
-      this.destination.gain.linearRampToValueAtTime(
-        0.3,
+      this.output.offset.linearRampToValueAtTime(
+        1,
         timestamp + this.attack,
       );
     }
-    this.destination.gain.linearRampToValueAtTime(
+    this.output.offset.linearRampToValueAtTime(
       0,
       timestamp + this.attack + this.release,
     );
+
+    this.output.start(timestamp);
+    this.output.stop(timestamp + this.attack + this.release);
   }
 }

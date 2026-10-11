@@ -1,14 +1,10 @@
-import { AttackReleaseEnv } from "./AttackReleaseEnv";
+import { SynthVoiceOutput } from "./SynthVoiceOutput.ts";
+import type { SynthVoiceOutputParams } from "./SynthVoiceOutput.ts";
+import type { ManagedVoice } from "./VoiceManager.ts";
 
-export type SubtractiveSynthVoiceParams = {
+export type SubtractiveSynthVoiceParams = SynthVoiceOutputParams & {
   waveform: string;
   detune: number;
-  filterCutoff: number;
-  filterRes: number;
-  filterEnvMod: number;
-  volume: number;
-  attack: number;
-  release: number;
   lfoSpeed: number;
   lfoIntensity: number;
   lfoDestination: string;
@@ -20,95 +16,82 @@ const LFO_SCALES = {
   volume: 0.25,
 };
 
-export class SubtractiveSynthVoice {
-  env: AttackReleaseEnv;
+// Keeps the normal patch comfortably audible while leaving pre-filter
+// headroom for two oscillators and resonant peaks.
+const OSCILLATOR_MIX_GAIN = 0.6;
+
+export class SubtractiveSynthVoice implements ManagedVoice {
   osc1: OscillatorNode;
   osc2: OscillatorNode;
-  filter: BiquadFilterNode;
-  filterEnvGain: GainNode;
-  gain: GainNode;
+  oscillatorMix: GainNode;
+  output: SynthVoiceOutput;
   lfo: OscillatorNode;
   lfoGain: GainNode;
-  lastFreq = 0;
+  context: AudioContext;
 
   constructor(context: AudioContext) {
-    this.env = new AttackReleaseEnv(context);
-
+    this.context = context;
     this.osc1 = context.createOscillator();
     this.osc2 = context.createOscillator();
-
-    this.filter = context.createBiquadFilter();
-    this.filter.type = "lowpass";
-
-    this.gain = context.createGain();
+    this.oscillatorMix = context.createGain();
+    this.oscillatorMix.gain.value = OSCILLATOR_MIX_GAIN;
+    this.output = new SynthVoiceOutput(context);
 
     this.lfo = context.createOscillator();
     this.lfo.type = "triangle";
     this.lfoGain = context.createGain();
     this.lfo.connect(this.lfoGain);
 
-    this.filterEnvGain = context.createGain();
-    this.env.destination.connect(this.filterEnvGain);
-    this.filterEnvGain.connect(this.filter.frequency);
-
-    this.osc1.connect(this.filter);
-    this.osc2.connect(this.filter);
-    this.filter.connect(this.env.destination);
-    this.env.destination.connect(this.gain);
-    this.gain.connect(context.destination);
-
-    this.osc1.start();
-    this.osc2.start();
-    this.lfo.start();
+    this.osc1.connect(this.oscillatorMix);
+    this.osc2.connect(this.oscillatorMix);
+    this.oscillatorMix.connect(this.output.input);
   }
 
   trigger(timestamp: number): void {
-    this.env.trigger(timestamp);
+    const startTime = timestamp === 0 ? this.context.currentTime : timestamp;
+    this.osc1.start(startTime);
+    this.osc2.start(startTime);
+    this.lfo.start(startTime);
+    this.output.trigger(timestamp);
   }
 
-  setPitch(freq: number, glide: number, now: number): void {
-    this.osc1.frequency.cancelScheduledValues(now);
-    this.osc2.frequency.cancelScheduledValues(now);
-    if (glide === 0 || this.lastFreq === 0) {
-      this.osc1.frequency.setValueAtTime(freq, now);
-      this.osc2.frequency.setValueAtTime(freq, now);
-    } else {
-      this.osc1.frequency.setValueAtTime(this.lastFreq, now);
-      this.osc2.frequency.setValueAtTime(this.lastFreq, now);
-      this.osc1.frequency.linearRampToValueAtTime(freq, now + glide);
-      this.osc2.frequency.linearRampToValueAtTime(freq, now + glide);
-    }
-    this.lastFreq = freq;
+  stop(timestamp: number, fadeOut = false): void {
+    const stopTime = fadeOut ? this.output.fadeOut(timestamp) : timestamp;
+
+    this.osc1.stop(stopTime);
+    this.osc2.stop(stopTime);
+    this.lfo.stop(stopTime);
   }
 
-  apply(params: SubtractiveSynthVoiceParams): void {
-    this.osc1.type = params.waveform as OscillatorType;
-    this.osc2.type = params.waveform as OscillatorType;
-    this.osc2.detune.value = params.detune * 50;
+  setPitch(freq: number, timestamp: number): void {
+    this.osc1.frequency.setValueAtTime(freq, timestamp);
+    this.osc2.frequency.setValueAtTime(freq, timestamp);
+  }
 
-    this.filter.frequency.value = params.filterCutoff * 7000;
-    this.filter.Q.value = params.filterRes * 30;
-    this.filterEnvGain.gain.value = params.filterEnvMod * 7000;
-    this.gain.gain.value = params.volume;
+  apply(params: SubtractiveSynthVoiceParams, timestamp: number): void {
+    const waveform = params.waveform as OscillatorType;
+    this.osc1.type = waveform;
+    this.osc2.type = waveform;
 
-    this.env.attack = params.attack;
-    this.env.release = params.release;
+    this.osc2.detune.setValueAtTime(params.detune * 50, timestamp);
+    this.output.apply(params, timestamp);
 
-    this.lfo.frequency.value = params.lfoSpeed;
-    this.lfoGain.disconnect();
-    this.lfoGain.gain.value =
-      params.lfoIntensity *
+    this.lfo.frequency.setValueAtTime(params.lfoSpeed, timestamp);
+    const lfoIntensity = Math.max(0, Math.min(1, params.lfoIntensity));
+    const lfoAmount = lfoIntensity *
       LFO_SCALES[params.lfoDestination as keyof typeof LFO_SCALES];
+    this.lfoGain.gain.setValueAtTime(lfoAmount, timestamp);
+
     switch (params.lfoDestination) {
       case "freq":
         this.lfoGain.connect(this.osc1.detune);
         this.lfoGain.connect(this.osc2.detune);
         break;
       case "filterCutoff":
-        this.lfoGain.connect(this.filter.frequency);
+        this.lfoGain.connect(this.output.filter.node.frequency);
         break;
       case "volume":
-        this.lfoGain.connect(this.gain.gain);
+        this.lfoGain.connect(this.output.volume.gain);
         break;
     }
   }
